@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>동전 던지기 확률 실험실</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Pretendard', sans-serif; }
+        .coin {
+            width: 140px;
+            height: 140px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .coin.flip-heads {
+            transform: rotateY(0deg);
+        }
+        .coin.flip-tails {
+            transform: rotateY(1800deg);
+        }
+        .coin-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2), inset 0 2px 4px rgba(255, 255, 255, 0.6);
+            border: 6px solid #eab308;
+        }
+        .coin-heads {
+            background: linear-gradient(135deg, #fef08a 0%, #ca8a04 100%);
+            color: #713f12;
+        }
+        .coin-tails {
+            background: linear-gradient(135deg, #e2e8f0 0%, #64748b 100%);
+            color: #1e293b;
+            transform: rotateY(180deg);
+            border-color: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <header class="bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg py-6 px-4">
+        <div class="max-w-5xl mx-large flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold flex items-center gap-2">
+                    🪙 동전 던지기 확률 실험실
+                </h1>
+                <p class="text-indigo-100 text-sm mt-1">동전 던지기 결과를 통계적으로 관찰하고 분석해보세요!</p>
+            </div>
+            <div class="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 text-sm">
+                실험 상태: <span id="experiment-status" class="font-semibold text-amber-300">대기 중</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left Panel: Controls & Animation -->
+        <div class="lg:col-span-1 flex flex-col gap-6">
+            
+            <!-- Coin Visualizer Box -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col items-center justify-center relative overflow-hidden">
+                <div class="absolute top-3 left-3 text-xs font-medium text-slate-400">시각화</div>
+                <div class="my-8 perspective-1000">
+                    <div id="coin" class="coin flip-heads">
+                        <div class="coin-face coin-heads">앞면 (H)</div>
+                        <div class="coin-face coin-tails">뒷면 (T)</div>
+                    </div>
+                </div>
+                <p id="current-result-text" class="text-lg font-bold text-slate-700 min-h-[1.75rem]">동전을 던져보세요!</p>
+            </div>
+
+            <!-- Interactive Action Box -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col gap-4">
+                <h2 class="text-md font-bold text-slate-800 border-b pb-2">실험 조작</h2>
+                
+                <button id="btn-single" onclick="flipCoin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition transform active:scale-95 flex items-center justify-center gap-2">
+                    ✨ 1회 던지기
+                </button>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="runBatch(10)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2 rounded-lg text-sm transition">10회</button>
+                    <button onclick="runBatch(100)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2 rounded-lg text-sm transition">100회</button>
+                    <button onclick="runBatch(1000)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2 rounded-lg text-sm transition">1,000회</button>
+                </div>
+
+                <div class="pt-2 border-t flex flex-col gap-2">
+                    <label class="text-xs font-medium text-slate-500">사용자 지정 횟수 대량 실험</label>
+                    <div class="flex gap-2">
+                        <input type="number" id="custom-count" value="5000" min="1" max="50000" class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button onclick="runCustomBatch()" class="bg-violet-600 hover:bg-violet-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition">실행</button>
+                    </div>
+                </div>
+
+                <button onclick="resetExperiment()" class="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 font-medium py-2 px-4 rounded-xl text-sm transition mt-2">
+                    데이터 초기화
+                </button>
+            </div>
+        </div>
+
+        <!-- Right Panel: Statistics Only -->
+        <div class="lg:col-span-2 flex flex-col gap-6">
+            
+            <!-- Summary Stats Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                    <p class="text-xs text-slate-500 font-medium">총 던진 횟수</p>
+                    <p id="stat-total" class="text-2xl font-bold text-slate-800 mt-1">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                    <p class="text-xs text-amber-600 font-medium">앞면 (Heads)</p>
+                    <p id="stat-heads" class="text-2xl font-bold text-amber-600 mt-1">0 <span id="pct-heads" class="text-xs font-normal text-slate-500">(0.0%)</span></p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                    <p class="text-xs text-slate-600 font-medium">뒷면 (Tails)</p>
+                    <p id="stat-tails" class="text-2xl font-bold text-slate-600 mt-1">0 <span id="pct-tails" class="text-xs font-normal text-slate-500">(0.0%)</span></p>
+                </div>
+                <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                    <p class="text-xs text-indigo-600 font-medium">이론적 확률 차이</p>
+                    <p id="stat-diff" class="text-2xl font-bold text-indigo-600 mt-1">0.0%</p>
+                </div>
+            </div>
+
+            <!-- Detailed Breakdown Card -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col gap-4">
+                <h2 class="text-md font-bold text-slate-800">실험 결과 요약</h2>
+                <div class="flex flex-col gap-3">
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="font-medium text-amber-700">앞면 비율</span>
+                            <span id="detail-heads-pct" class="font-bold text-slate-700">0.0%</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                            <div id="bar-heads" class="bg-amber-500 h-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="font-medium text-slate-700">뒷면 비율</span>
+                            <span id="detail-tails-pct" class="font-bold text-slate-700">0.0%</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                            <div id="bar-tails" class="bg-slate-500 h-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script>
+        // State variables
+        let totalFlips = 0;
+        let headsCount = 0;
+        let tailsCount = 0;
+        let isAnimating = false;
+
+        // Update statistics display on UI
+        function updateUI() {
+            document.getElementById('stat-total').innerText = totalFlips.toLocaleString();
+            document.getElementById('stat-heads').childNodes[0].nodeValue = headsCount.toLocaleString() + ' ';
+            document.getElementById('stat-tails').childNodes[0].nodeValue = tailsCount.toLocaleString() + ' ';
+
+            const headsPct = totalFlips > 0 ? ((headsCount / totalFlips) * 100).toFixed(1) : '0.0';
+            const tailsPct = totalFlips > 0 ? ((tailsCount / totalFlips) * 100).toFixed(1) : '0.0';
+            const diff = totalFlips > 0 ? Math.abs(parseFloat(headsPct) - 50).toFixed(1) : '0.0';
+
+            document.getElementById('pct-heads').innerText = `(${headsPct}%)`;
+            document.getElementById('pct-tails').innerText = `(${tailsPct}%)`;
+            document.getElementById('stat-diff').innerText = `${diff}%`;
+
+            // Progress bar updates
+            document.getElementById('detail-heads-pct').innerText = `${headsPct}%`;
+            document.getElementById('detail-tails-pct').innerText = `${tailsPct}%`;
+            document.getElementById('bar-heads').style.width = `${headsPct}%`;
+            document.getElementById('bar-tails').style.width = `${tailsPct}%`;
+        }
+
+        // Single coin flip with visual animation
+        function flipCoin() {
+            if (isAnimating) return;
+            isAnimating = true;
+
+            const coinEl = document.getElementById('coin');
+            const statusEl = document.getElementById('experiment-status');
+            const resultText = document.getElementById('current-result-text');
+
+            statusEl.innerText = "던지는 중...";
+            statusEl.className = "font-semibold text-indigo-600 animate-pulse";
+
+            // Random outcome
+            const isHeads = Math.random() < 0.5;
+
+            // Apply spin animation classes
+            coinEl.style.transition = "transform 1s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
+            
+            // Current transform rotation offset to keep accumulating spins smoothly
+            const currentRotation = coinEl.classList.contains('flip-tails') ? 1800 : 1440;
+            const targetRotation = isHeads ? currentRotation + 360 : currentRotation + 540;
+            
+            coinEl.style.transform = `rotateY(${targetRotation}deg)`;
+
+            setTimeout(() => {
+                if (isHeads) {
+                    coinEl.classList.remove('flip-tails');
+                    coinEl.classList.add('flip-heads');
+                    resultText.innerText = "결과: 앞면 (Heads) 🎉";
+                } else {
+                    coinEl.classList.remove('flip-heads');
+                    coinEl.classList.add('flip-tails');
+                    resultText.innerText = "결과: 뒷면 (Tails) 🪙";
+                }
+
+                // Update data
+                totalFlips++;
+                if (isHeads) headsCount++; else tailsCount++;
+                
+                updateUI();
+
+                statusEl.innerText = "대기 중";
+                statusEl.className = "font-semibold text-amber-300";
+                isAnimating = false;
+            }, 1000);
+        }
+
+        // Run batch flips instantly without visual animation per flip
+        function runBatch(count) {
+            for (let i = 0; i < count; i++) {
+                const isHeads = Math.random() < 0.5;
+                totalFlips++;
+                if (isHeads) headsCount++; else tailsCount++;
+            }
+
+            // Set final coin face appearance based on last flip
+            const lastIsHeads = Math.random() < 0.5;
+            const coinEl = document.getElementById('coin');
+            if (lastIsHeads) {
+                coinEl.classList.remove('flip-tails');
+                coinEl.classList.add('flip-heads');
+                document.getElementById('current-result-text').innerText = `${count}회 연속 실험 완료 (마지막: 앞면)`;
+            } else {
+                coinEl.classList.remove('flip-heads');
+                coinEl.classList.add('flip-tails');
+                document.getElementById('current-result-text').innerText = `${count}회 연속 실험 완료 (마지막: 뒷면)`;
+            }
+
+            updateUI();
+        }
+
+        // Custom user batch execution
+        function runCustomBatch() {
+            const inputVal = parseInt(document.getElementById('custom-count').value);
+            if (isNaN(inputVal) || inputVal <= 0) {
+                alert("올바른 숫자(1 이상)를 입력해주세요.");
+                return;
+            }
+            if (inputVal > 50000) {
+                alert("성능 유지를 위해 최대 50,000회 이하로 입력해주세요.");
+                return;
+            }
+            runBatch(inputVal);
+        }
+
+        // Reset all experiment records
+        function resetExperiment() {
+            totalFlips = 0;
+            headsCount = 0;
+            tailsCount = 0;
+            
+            const coinEl = document.getElementById('coin');
+            coinEl.classList.remove('flip-tails');
+            coinEl.classList.add('flip-heads');
+            coinEl.style.transform = 'rotateY(0deg)';
+
+            document.getElementById('current-result-text').innerText = "데이터가 초기화되었습니다.";
+            updateUI();
+        }
+    </script>
+</body>
+</html>
